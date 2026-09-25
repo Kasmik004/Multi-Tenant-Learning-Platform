@@ -11,14 +11,14 @@ class UserCreate(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=1, max_length=200)
     password: str = Field(min_length=8, max_length=128)
-    role: UserRole = UserRole.LEARNER
+    role: UserRole = UserRole.USER  # Default role for new users
 
 
 class UserRead(ORMModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
     email: EmailStr
-    full_name: str
+    full_name: str | None
     role: UserRole
     is_active: bool
     created_at: datetime

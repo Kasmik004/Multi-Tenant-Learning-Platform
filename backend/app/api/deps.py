@@ -53,7 +53,11 @@ def require_roles(*roles: UserRole) -> Callable[[User], Awaitable[User]]:
     return checker
 
 
+SuperAdminUser = Annotated[User, Depends(require_roles(UserRole.SUPERADMIN))]
 AdminUser = Annotated[User, Depends(require_roles(UserRole.ADMIN))]
-StaffUser = Annotated[User, Depends(require_roles(UserRole.ADMIN, UserRole.INSTRUCTOR))]
+ViewerUser = Annotated[User, Depends(require_roles( UserRole.SUPERVIEWER))]
+TENEANTAdminUser = Annotated[User, Depends(require_roles(UserRole.TENANTADMIN))]
+UserUser = Annotated[User, Depends(require_roles(UserRole.USER))]
+
 
 Pagination = Annotated[PaginationParams, Depends()]

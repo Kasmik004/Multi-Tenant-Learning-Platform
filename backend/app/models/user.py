@@ -7,9 +7,12 @@ from app.models.base import Base, TenantScopedMixin, TimestampMixin, UUIDPrimary
 
 
 class UserRole(enum.StrEnum):
+    SUPERADMIN = "superadmin"
     ADMIN = "admin"
-    INSTRUCTOR = "instructor"
-    LEARNER = "learner"
+    SUPERVIEWER = "superviewer"
+    TENANTADMIN = "tenantadmin"
+    USER = "user"
+    
 
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
@@ -19,9 +22,9 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
 
     email: Mapped[str] = mapped_column(String(320))
     hashed_password: Mapped[str] = mapped_column(String(255))
-    full_name: Mapped[str] = mapped_column(String(200))
+    full_name: Mapped[str | None] = mapped_column(String(200))
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, name="user_role", values_callable=lambda e: [m.value for m in e]),
-        default=UserRole.LEARNER,
+        default=UserRole.USER,
     )
     is_active: Mapped[bool] = mapped_column(default=True)

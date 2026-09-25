@@ -61,3 +61,44 @@ async def test_learner_cannot_create_course_or_users(client: AsyncClient, create
         await client.post(f"{API}/courses", headers=learner, json={"title": "X"})
     ).status_code == 403
     assert (await client.get(f"{API}/users", headers=learner)).status_code == 403
+
+
+async def test_register_creates_user_with_default_role(client: AsyncClient, create_tenant) -> None:
+    await create_tenant("acme")
+    resp = await client.post(
+        f"{API}/auth/register",
+        json={
+            "tenant_slug": "acme",
+            "email": "reg@acme.example.com",
+            "password": "password123",
+            "confirm_password": "password123",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    headers = {"Authorization": f"Bearer {resp.json()['access_token']}"}
+    me = await client.get(f"{API}/auth/me", headers=headers)
+    assert me.status_code == 200, me.text
+    assert me.json()["role"] == "user"
+    assert me.json()["full_name"] is None
+
+    tenant = await client.get(f"{API}/tenants/current", headers=headers)
+    assert tenant.json()["slug"] == "acme"
+
+
+async def test_registered_user_can_log_in(client: AsyncClient, create_tenant) -> None:
+    await create_tenant("acme")
+    resp = await client.post(
+        f"{API}/auth/register",
+        json={
+            "tenant_slug": "acme",
+            "email": "reg@acme.example.com",
+            "password": "password123",
+            "confirm_password": "password123",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    headers = await login(client, "acme", "reg@acme.example.com", "password123")
+    me = await client.get(f"{API}/auth/me", headers=headers)
+    assert me.json()["email"] == "reg@acme.example.com"
