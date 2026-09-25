@@ -6,7 +6,7 @@ from app.api.deps import (
     PlatformAdminUser,
     PlatformUser,
     SuperAdminUser,
-    TenantMember,
+    TenantScope,
 )
 from app.schemas.common import Page
 from app.schemas.tenant import TenantCreate, TenantRead, TenantUpdate
@@ -33,7 +33,7 @@ async def list_tenants(_: PlatformUser, db: DBSession, page: Pagination) -> Page
 
 
 @router.get("/current", response_model=TenantRead)
-async def current_tenant(ctx: TenantMember) -> TenantRead:
+async def current_tenant(ctx: TenantScope) -> TenantRead:
     return TenantRead.model_validate(ctx.tenant)
 
 

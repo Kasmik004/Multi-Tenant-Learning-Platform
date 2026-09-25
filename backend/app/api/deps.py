@@ -20,7 +20,7 @@ DBSession = Annotated[AsyncSession, Depends(get_db)]
 
 _bearer = HTTPBearer(auto_error=False)
 
-# Platform roles that may write inside any tenant; superviewer is read-only.
+# Platform roles that may invite a tenant's tenantadmins.
 _PLATFORM_MANAGERS = {PlatformRole.SUPERADMIN, PlatformRole.ADMIN}
 
 
@@ -57,15 +57,17 @@ class TenantContext:
         return self.tenant.id
 
     @property
-    def can_manage(self) -> bool:
-        if self.user.platform_role in _PLATFORM_MANAGERS:
-            return True
-        return self.user.tenant_role == TenantRole.TENANTADMIN
+    def is_platform(self) -> bool:
+        return self.user.platform_role is not None
 
     @property
-    def can_oversee(self) -> bool:
-        """Read tenant admin data (the user list): managers plus superviewer."""
-        return self.can_manage or self.user.platform_role == PlatformRole.SUPERVIEWER
+    def can_manage(self) -> bool:
+        return not self.is_platform and self.user.tenant_role == TenantRole.TENANTADMIN
+
+    @property
+    def can_invite(self) -> bool:
+        # Platform managers may invite (tenantadmins only; enforced at the endpoint).
+        return self.can_manage or self.user.platform_role in _PLATFORM_MANAGERS
 
 
 async def get_tenant_context(
@@ -82,7 +84,7 @@ async def get_tenant_context(
     if tenant is None:
         raise no_access
 
-    # Platform roles reach every tenant, including deactivated ones they need to manage.
+    # Platform roles reach every tenant's metadata, including deactivated tenants.
     if user.platform_role is not None:
         return TenantContext(user=user, tenant=tenant)
 
@@ -92,28 +94,22 @@ async def get_tenant_context(
     return TenantContext(user=user, tenant=tenant)
 
 
-async def require_tenant_manager(
-    ctx: Annotated[TenantContext, Depends(get_tenant_context)],
-) -> TenantContext:
-    if not ctx.can_manage:
-        raise ForbiddenError("Insufficient permissions")
-    return ctx
+def _require(check: Callable[[TenantContext], bool]) -> Callable[..., Awaitable[TenantContext]]:
+    async def checker(ctx: Annotated[TenantContext, Depends(get_tenant_context)]) -> TenantContext:
+        if not check(ctx):
+            raise ForbiddenError("Insufficient permissions")
+        return ctx
+
+    return checker
 
 
-async def require_tenant_overseer(
-    ctx: Annotated[TenantContext, Depends(get_tenant_context)],
-) -> TenantContext:
-    if not ctx.can_oversee:
-        raise ForbiddenError("Insufficient permissions")
-    return ctx
-
-
-# Any active member of the tenant, or any platform role (superviewer included).
-TenantMember = Annotated[TenantContext, Depends(get_tenant_context)]
-# tenantadmin of the tenant, or superadmin/admin.
-TenantManager = Annotated[TenantContext, Depends(require_tenant_manager)]
-# TenantManager plus read-only superviewer.
-TenantOverseer = Annotated[TenantContext, Depends(require_tenant_overseer)]
+# Tenant metadata only: the tenant's own accounts plus any platform role.
+TenantScope = Annotated[TenantContext, Depends(get_tenant_context)]
+# The tenant's own accounts. Platform roles never see tenant data (users' PII, courses).
+TenantMember = Annotated[TenantContext, Depends(_require(lambda c: not c.is_platform))]
+# The tenant's own tenantadmins.
+TenantManager = Annotated[TenantContext, Depends(_require(lambda c: c.can_manage))]
+TenantInviter = Annotated[TenantContext, Depends(_require(lambda c: c.can_invite))]
 
 
 def require_platform_roles(*roles: PlatformRole) -> Callable[[User], Awaitable[User]]:

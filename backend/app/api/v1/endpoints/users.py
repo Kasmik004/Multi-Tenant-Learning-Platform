@@ -2,7 +2,9 @@ import uuid
 
 from fastapi import APIRouter, status
 
-from app.api.deps import DBSession, Pagination, TenantManager, TenantOverseer
+from app.api.deps import DBSession, Pagination, TenantInviter, TenantManager
+from app.core.exceptions import ForbiddenError
+from app.models.user import TenantRole
 from app.schemas.common import Page
 from app.schemas.user import InviteCreate, InviteRead, UserRead, UserUpdate
 from app.services import UserService
@@ -11,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("", response_model=Page[UserRead])
-async def list_users(ctx: TenantOverseer, db: DBSession, page: Pagination) -> Page[UserRead]:
+async def list_users(ctx: TenantManager, db: DBSession, page: Pagination) -> Page[UserRead]:
     items, total = await UserService(db, ctx.tenant_id).list(limit=page.limit, offset=page.offset)
     return Page(
         items=[UserRead.model_validate(u) for u in items],
@@ -22,7 +24,10 @@ async def list_users(ctx: TenantOverseer, db: DBSession, page: Pagination) -> Pa
 
 
 @router.post("/invites", response_model=InviteRead, status_code=status.HTTP_201_CREATED)
-async def invite_user(data: InviteCreate, ctx: TenantManager, db: DBSession) -> InviteRead:
+async def invite_user(data: InviteCreate, ctx: TenantInviter, db: DBSession) -> InviteRead:
+    # Platform admins bootstrap a tenant's admins; only tenantadmins onboard its users.
+    if ctx.is_platform and data.role != TenantRole.TENANTADMIN:
+        raise ForbiddenError("Platform admins can only invite tenant admins")
     return await UserService(db, ctx.tenant_id).invite(data)
 
 
