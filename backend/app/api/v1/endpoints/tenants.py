@@ -9,7 +9,7 @@ from app.api.deps import (
     TenantScope,
 )
 from app.schemas.common import Page
-from app.schemas.tenant import TenantCreate, TenantRead, TenantUpdate
+from app.schemas.tenant import TenantCreate, TenantRead, TenantUpdate, TrialExtend
 from app.services import TenantService
 
 router = APIRouter()
@@ -52,3 +52,11 @@ async def update_tenant(
 @router.delete("/{slug}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_tenant(slug: str, _: SuperAdminUser, db: DBSession) -> None:
     await TenantService(db).delete(slug)
+
+
+@router.post("/{slug}/trial", response_model=TenantRead)
+async def extend_trial(
+    slug: str, data: TrialExtend, _: PlatformAdminUser, db: DBSession
+) -> TenantRead:
+    """Extends the trial by `days`; reactivates an expired tenant (counted from now)."""
+    return TenantRead.model_validate(await TenantService(db).extend_trial(slug, data.days))

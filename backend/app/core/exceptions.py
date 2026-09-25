@@ -33,6 +33,12 @@ class ForbiddenError(AppError):
     code = "forbidden"
 
 
+class TrialExpiredError(ForbiddenError):
+    """The tenant's trial is over; a distinct code lets clients show a renewal message."""
+
+    code = "trial_expired"
+
+
 async def _app_error_handler(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, AppError)
     headers = {"WWW-Authenticate": "Bearer"} if isinstance(exc, UnauthorizedError) else None

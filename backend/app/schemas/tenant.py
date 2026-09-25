@@ -3,6 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.models.tenant import TenantStatus
 from app.schemas.common import ORMModel
 
 SLUG_PATTERN = r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
@@ -18,9 +19,17 @@ class TenantUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class TrialExtend(BaseModel):
+    days: int = Field(ge=1, le=365)
+
+
 class TenantRead(ORMModel):
     id: uuid.UUID
     name: str
     slug: str
     is_active: bool
+    # Live status: already "expired" once trial_ends_at passes, even before the sweep runs.
+    status: TenantStatus = Field(validation_alias="current_status")
+    trial_ends_at: datetime
+    expired_at: datetime | None
     created_at: datetime

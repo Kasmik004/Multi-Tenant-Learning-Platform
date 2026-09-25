@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     INVITE_EXPIRE_HOURS: int = 72
 
+    # Tenant lifecycle: every new tenant starts with a free trial of this many days.
+    TRIAL_DAYS: int = 14
+
     # CORS — comma-separated list in env, e.g. "http://localhost:3000,https://app.example.com"
     CORS_ORIGINS: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
 

@@ -9,7 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.exceptions import AppError, ForbiddenError, UnauthorizedError
+from app.core.exceptions import AppError, ForbiddenError, TrialExpiredError, UnauthorizedError
 from app.core.security import decode_access_token
 from app.models.tenant import Tenant
 from app.models.user import PlatformRole, TenantRole, User
@@ -61,6 +61,10 @@ class TenantContext:
         return self.user.platform_role is not None
 
     @property
+    def trial_expired(self) -> bool:
+        return self.tenant.trial_expired
+
+    @property
     def can_manage(self) -> bool:
         return not self.is_platform and self.user.tenant_role == TenantRole.TENANTADMIN
 
@@ -94,10 +98,16 @@ async def get_tenant_context(
     return TenantContext(user=user, tenant=tenant)
 
 
-def _require(check: Callable[[TenantContext], bool]) -> Callable[..., Awaitable[TenantContext]]:
+def _require(
+    check: Callable[[TenantContext], bool], *, active_trial: bool = False
+) -> Callable[..., Awaitable[TenantContext]]:
+    """active_trial: also refuse once the tenant's trial is over (learning features, invites)."""
+
     async def checker(ctx: Annotated[TenantContext, Depends(get_tenant_context)]) -> TenantContext:
         if not check(ctx):
             raise ForbiddenError("Insufficient permissions")
+        if active_trial and ctx.trial_expired:
+            raise TrialExpiredError("This organization's trial has expired")
         return ctx
 
     return checker
@@ -109,7 +119,17 @@ TenantScope = Annotated[TenantContext, Depends(get_tenant_context)]
 TenantMember = Annotated[TenantContext, Depends(_require(lambda c: not c.is_platform))]
 # The tenant's own tenantadmins.
 TenantManager = Annotated[TenantContext, Depends(_require(lambda c: c.can_manage))]
-TenantInviter = Annotated[TenantContext, Depends(_require(lambda c: c.can_invite))]
+TenantInviter = Annotated[
+    TenantContext, Depends(_require(lambda c: c.can_invite, active_trial=True))
+]
+# Learning features (courses) additionally need a running trial. An expired tenant's accounts
+# can still sign in, see the tenant's status and manage (not invite) users.
+LearningMember = Annotated[
+    TenantContext, Depends(_require(lambda c: not c.is_platform, active_trial=True))
+]
+LearningManager = Annotated[
+    TenantContext, Depends(_require(lambda c: c.can_manage, active_trial=True))
+]
 
 
 def require_platform_roles(*roles: PlatformRole) -> Callable[[User], Awaitable[User]]:

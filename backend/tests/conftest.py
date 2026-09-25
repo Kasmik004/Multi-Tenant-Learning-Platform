@@ -5,18 +5,19 @@ os.environ["POSTGRES_DB"] = os.environ.get("POSTGRES_TEST_DB", "learning_platfor
 os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-bytes-long")
 
 from collections.abc import AsyncIterator, Awaitable, Callable  # noqa: E402
+from datetime import datetime  # noqa: E402
 from typing import Any  # noqa: E402
 
 import asyncpg  # noqa: E402
 import pytest  # noqa: E402
 from httpx import ASGITransport, AsyncClient, Response  # noqa: E402
-from sqlalchemy import text  # noqa: E402
+from sqlalchemy import text, update  # noqa: E402
 
 from app.core.config import settings  # noqa: E402
 from app.core.database import SessionLocal, engine  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import Base, PlatformRole, User  # noqa: E402
+from app.models import Base, PlatformRole, Tenant, User  # noqa: E402
 from app.repositories import UserRepository  # noqa: E402
 
 API = settings.API_V1_PREFIX
@@ -94,6 +95,13 @@ async def create_platform_user(client: AsyncClient, email: str, role: PlatformRo
         await UserRepository(session).add(user)
         await session.commit()
     return await login(client, email)
+
+
+async def set_trial_end(slug: str, when: datetime) -> None:
+    """Moves a tenant's trial end (e.g. into the past) without waiting for real time to pass."""
+    async with SessionLocal() as session:
+        await session.execute(update(Tenant).where(Tenant.slug == slug).values(trial_ends_at=when))
+        await session.commit()
 
 
 @pytest.fixture
