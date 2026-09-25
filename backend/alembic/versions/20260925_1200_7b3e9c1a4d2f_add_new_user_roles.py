@@ -6,7 +6,7 @@ Create Date: 2026-09-25 12:00:00.000000
 
 """
 
-# Why: the UserRole enum gained superadmin/superviewer/tenantadmin/user, so the DB type must accept them.
+# Why: UserRole gained superadmin/superviewer/tenantadmin/user, so the DB type must accept them.
 
 from collections.abc import Sequence
 

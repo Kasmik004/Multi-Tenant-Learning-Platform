@@ -2,6 +2,6 @@
 from app.models.base import Base
 from app.models.course import Course
 from app.models.tenant import Tenant
-from app.models.user import User, UserRole
+from app.models.user import PlatformRole, TenantRole, User
 
-__all__ = ["Base", "Course", "Tenant", "User", "UserRole"]
+__all__ = ["Base", "Course", "PlatformRole", "Tenant", "TenantRole", "User"]

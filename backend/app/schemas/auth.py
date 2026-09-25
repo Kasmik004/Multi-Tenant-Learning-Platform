@@ -1,26 +1,26 @@
-from pydantic import BaseModel, EmailStr, model_validator
-from app.models.user import UserRole
+from typing import Self
+
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 class LoginRequest(BaseModel):
-    tenant_slug: str
     email: EmailStr
     password: str
+    # The tenant the account belongs to; omit for platform accounts.
+    tenant_slug: str | None = None
 
-class RegisterRequest(BaseModel):
-    tenant_slug: str
-    email: EmailStr
-    password: str
+
+class AcceptInviteRequest(BaseModel):
+    token: str = Field(min_length=1)
+    password: str = Field(min_length=8, max_length=128)
     confirm_password: str
-    role: str = UserRole.USER  # Default role for new users
-    
-    @model_validator(mode="before")
-    def validate_passwords(cls, values):
-        password = values.get("password")
-        confirm_password = values.get("confirm_password")
-        if password != confirm_password:
+
+    @model_validator(mode="after")
+    def validate_passwords(self) -> Self:
+        if self.password != self.confirm_password:
             raise ValueError("Passwords do not match")
-        return values
+        return self
+
 
 class Token(BaseModel):
     access_token: str

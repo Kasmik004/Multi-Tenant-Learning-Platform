@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 
 from app.api.deps import CurrentUser, DBSession
-from app.schemas.auth import LoginRequest, RegisterRequest, Token
-from app.schemas.user import UserRead
+from app.schemas.auth import AcceptInviteRequest, LoginRequest, Token
+from app.schemas.user import MeRead
 from app.services import AuthService
 
 router = APIRouter()
@@ -13,10 +13,11 @@ async def login(data: LoginRequest, db: DBSession) -> Token:
     return await AuthService(db).login(data)
 
 
-@router.get("/me", response_model=UserRead)
-async def me(user: CurrentUser) -> UserRead:
-    return UserRead.model_validate(user)
+@router.post("/accept-invite", response_model=Token)
+async def accept_invite(data: AcceptInviteRequest, db: DBSession) -> Token:
+    return await AuthService(db).accept_invite(data)
 
-@router.post("/register", response_model=Token)
-async def register(data: RegisterRequest, db: DBSession) -> Token:
-    return await AuthService(db).register(data)
+
+@router.get("/me", response_model=MeRead)
+async def me(user: CurrentUser, db: DBSession) -> MeRead:
+    return await AuthService(db).me(user)

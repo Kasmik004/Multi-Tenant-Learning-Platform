@@ -1,53 +1,68 @@
+from datetime import UTC, datetime
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import UnauthorizedError
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import (
+    create_access_token,
+    hash_invite_token,
+    hash_password,
+    verify_password,
+)
+from app.models.user import User
 from app.repositories import TenantRepository, UserRepository
-from app.models.user import UserRole
-from app.schemas.auth import LoginRequest, Token, RegisterRequest
+from app.schemas.auth import AcceptInviteRequest, LoginRequest, Token
+from app.schemas.user import MeRead, UserRead
 
 
 class AuthService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+        self.users = UserRepository(session)
 
     async def login(self, data: LoginRequest) -> Token:
         # Same error for every failure so callers can't probe which tenants/emails exist.
         invalid = UnauthorizedError("Invalid credentials")
 
-        tenant = await TenantRepository(self.session).get_by_slug(data.tenant_slug)
-        if tenant is None or not tenant.is_active:
-            raise invalid
+        tenant_id = None
+        if data.tenant_slug:
+            tenant = await TenantRepository(self.session).get_by_slug(data.tenant_slug)
+            if tenant is None or not tenant.is_active:
+                raise invalid
+            tenant_id = tenant.id
 
-        user = await UserRepository(self.session, tenant.id).get_by_email(data.email)
-        if user is None or not user.is_active:
+        user = await self.users.get_for_login(data.email, tenant_id)
+        if user is None or not user.is_active or user.hashed_password is None:
+            raise invalid
+        # Without a tenant only platform accounts may sign in.
+        if tenant_id is None and user.platform_role is None:
             raise invalid
         if not verify_password(data.password, user.hashed_password):
             raise invalid
 
-        token = create_access_token(user_id=user.id, tenant_id=tenant.id, role=user.role.value)
-        return Token(access_token=token)
-    
-    
-    async def register(self, data: RegisterRequest) -> Token:
-        # Same error for every failure so callers can't probe which tenants/emails exist.
-        invalid = UnauthorizedError("Invalid credentials")
+        return Token(access_token=create_access_token(user_id=user.id))
 
-        tenant = await TenantRepository(self.session).get_by_slug(data.tenant_slug)
-        if tenant is None or not tenant.is_active:
-            raise invalid
+    async def accept_invite(self, data: AcceptInviteRequest) -> Token:
+        user = await self.users.get_by_invite_hash(hash_invite_token(data.token))
+        if (
+            user is None
+            or user.invite_expires_at is None
+            or user.invite_expires_at < datetime.now(UTC)
+        ):
+            raise UnauthorizedError("Invalid or expired invite")
 
-        user = await UserRepository(self.session, tenant.id).get_by_email(data.email)
-        if user is not None:
-            raise invalid
-
-        # Create new user
-        new_user = await UserRepository(self.session, tenant.id).create(
-            email=data.email,
-            password=hash_password(data.password),
-            role=UserRole.USER,  # Default role for new users
-        )
+        user.hashed_password = hash_password(data.password)
+        # Single use: the token can't be replayed once accepted.
+        user.invite_token_hash = None
+        user.invite_expires_at = None
         await self.session.commit()
+        return Token(access_token=create_access_token(user_id=user.id))
 
-        token = create_access_token(user_id=new_user.id, tenant_id=tenant.id, role=new_user.role.value)
-        return Token(access_token=token)
+    async def me(self, user: User) -> MeRead:
+        tenant = (
+            await TenantRepository(self.session).get(user.tenant_id) if user.tenant_id else None
+        )
+        return MeRead(
+            **UserRead.model_validate(user).model_dump(),
+            tenant_slug=tenant.slug if tenant else None,
+        )
