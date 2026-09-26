@@ -6,6 +6,13 @@ In the code, an organization is called a **tenant**. One running copy of the app
 
 It's a demo project, but the backend is built to production standards: real database migrations, tests against a real database, and access checks on every request.
 
+## Other files to read
+
+| File | What it is |
+| --- | --- |
+| [DESIGN_DESCRIPTION.md](DESIGN_DESCRIPTION.md) | How the system is designed and why: how tenants are kept apart, how the free trial ends, roles, sign-in, and what's still missing. Also explains how the project was built with an AI agent. |
+| [Completion_Time.md](Completion_Time.md) | When the project was estimated to be done, and when it was actually completed. |
+
 ## What you can do with it
 
 There are two kinds of accounts.
@@ -39,7 +46,7 @@ Every new tenant gets a 14-day free trial. When it ends, people can still log in
 
 ## How it's built
 
-For the reasoning behind the design, see [DESIGN.md](DESIGN.md).
+For the reasoning behind the design, see [DESIGN_DESCRIPTION.md](DESIGN_DESCRIPTION.md).
 
 ```
   Browser
@@ -77,7 +84,7 @@ Keeping these separate means the permission checks live in one file (`backend/ap
 
 ### How tenants are kept apart
 
-A step-by-step walkthrough, plus how trial expiry works, is in [DESIGN.md](DESIGN.md).
+A step-by-step walkthrough, plus how trial expiry works, is in [DESIGN_DESCRIPTION.md](DESIGN_DESCRIPTION.md).
 
 All tenants share one database and the same tables. Every row that belongs to a tenant has a `tenant_id` column saying whose it is.
 
