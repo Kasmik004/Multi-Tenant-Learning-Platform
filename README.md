@@ -1,134 +1,223 @@
 # Learning Platform
 
-Multi-tenant learning platform for institutes and organizations. Each organization is a
-**tenant** with its own administrators, users, and courses.
+A web app where organizations (schools, training institutes, companies) run their own private learning space. Each organization gets its own admins, its own learners and its own courses, and none of them can see another organization's data.
 
-| Part       | Stack                                                                 |
-| ---------- | --------------------------------------------------------------------- |
-| `backend`  | FastAPI · SQLAlchemy 2 (async) · Alembic · PostgreSQL · uv            |
-| `frontend` | Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · openapi-fetch |
-| infra      | Docker Compose (Postgres 17, backend, frontend)                       |
+In the code, an organization is called a **tenant**. One running copy of the app serves many tenants at once. This setup is usually called "multi-tenant".
 
-## Quick start
+It's a demo project, but the backend is built to production standards: real database migrations, tests against a real database, and access checks on every request.
 
-```bash
-cp backend/.env.example backend/.env      # then set SECRET_KEY
-cp frontend/.env.example frontend/.env.local
+## What you can do with it
 
-docker compose up --build                 # db + backend + frontend, with hot reload
+There are two kinds of accounts.
+
+**Platform accounts** belong to the team running the app, not to any organization:
+
+| Role | Can do |
+| --- | --- |
+| `superadmin` | Create and delete tenants, invite a tenant's first admin, extend trials |
+| `admin` | Edit tenants, invite tenant admins, extend trials |
+| `superviewer` | Look at the list of tenants, read-only |
+
+Platform accounts only see *information about* tenants (name, status, trial dates). They can't see a tenant's users or courses. We chose this to keep people's personal data inside their own organization.
+
+**Tenant accounts** belong to one organization:
+
+| Role | Can do |
+| --- | --- |
+| `tenantadmin` | Invite users, manage users, create courses, assign courses to users, see everyone's progress |
+| `user` | See the courses assigned to them and report how far they've got (0 to 100%) |
+
+A typical flow:
+
+1. A superadmin creates a tenant, say "Acme Academy", and invites its first tenant admin.
+2. The tenant admin accepts the invite, sets a password, and invites learners.
+3. The tenant admin creates courses, publishes them and assigns them to learners.
+4. Learners log in, see only their assigned courses, and update their progress.
+5. The tenant admin watches progress per course.
+
+Every new tenant gets a 14-day free trial. When it ends, people can still log in, but courses, progress and new invites are switched off until a platform admin extends the trial. Nothing gets deleted. [docs/tenant-trial.md](docs/tenant-trial.md) has the details.
+
+## How it's built
+
+```
+  Browser
+     │
+     ▼
+┌──────────────┐    HTTP + JSON     ┌──────────────┐      SQL      ┌──────────────┐
+│   Frontend   │ ─────────────────▶ │   Backend    │ ────────────▶ │  PostgreSQL  │
+│   Next.js    │   login token +    │   FastAPI    │               │   database   │
+│  port 3000   │   tenant name      │  port 8000   │               │  port 5432   │
+└──────────────┘                    └──────────────┘               └──────────────┘
 ```
 
-- Frontend: http://localhost:3000
-- API docs (Swagger): http://localhost:8000/docs
-- Postgres: `localhost:5432`
+| Part | Tools |
+| --- | --- |
+| Backend (`backend/`) | Python 3.12, FastAPI, SQLAlchemy (talks to the database), Alembic (database changes), uv (package manager) |
+| Frontend (`frontend/`) | Next.js 16, React 19, TypeScript, Tailwind CSS |
+| Database | PostgreSQL 17 |
+| Running it all | Docker Compose |
+| CI | GitHub Actions runs linting, type checks, migrations and tests on every push |
 
-### Running apps natively (Postgres only in Docker)
+### Backend layers
+
+A request passes through four layers, and each one has a single job:
+
+```
+endpoints/     receives the HTTP request, checks who you are and what you're allowed to do
+   │
+services/      the actual rules ("a learner can only see assigned, published courses")
+   │           and it decides when to save to the database
+repositories/  reads and writes database rows
+   │
+models/        the table definitions
+```
+
+Keeping these separate means the permission checks live in one file (`backend/app/api/deps.py`), the business rules live in services, and nothing outside the repositories writes SQL.
+
+### How tenants are kept apart
+
+All tenants share one database and the same tables. Every row that belongs to a tenant has a `tenant_id` column saying whose it is.
+
+The alternative is a separate database per tenant. That gives stronger walls but is much more work to run: every new tenant means a new database, and every schema change has to be applied N times. For a platform with many small organizations, shared tables are simpler, and the design can still move a big customer to its own database later without changing the API.
+
+The risk with shared tables is obvious: forget one `WHERE tenant_id = ...` and one tenant sees another's data. So the code doesn't rely on people remembering it:
+
+- Repositories for tenant data are created *with* a tenant id, and they add the tenant filter to every query and stamp it on every new row automatically.
+- The browser never gets to pick the tenant id. The login token only says who you are. The tenant comes from an `X-Tenant-Slug` header, and the server checks on every request that your account actually belongs to that tenant. A tenant that doesn't exist and a tenant that isn't yours give the same error, so the tenant's name don't get leaked.
+- Tests (`tests/test_tenant_isolation.py`, `tests/test_learning.py`) try to list, read, edit and delete another tenant's data and expect to be refused.
+
+### Other decisions and why
+
+- **Invite-only sign-up.** There's no public registration page. Admins invite people. Organizations are private, so strangers shouldn't be able to create accounts or look around. Invite tokens are single-use, expire after 72 hours, and only a hash of them is stored.
+- **One account per tenant.** The same email can have separate accounts in two organizations, with separate passwords. An earlier version had one global account that joined several tenants. We dropped it because it let users browse tenants and made it harder to keep data apart (the history is in [CHANGES.md](CHANGES.md)).
+- **Trial expiry is checked on every request.** A scheduled command also marks expired tenants, but only for record-keeping. If the job doesn't run, access still stops on time.
+- **Soft block when a trial ends.** Users can log in and admins can manage users, but learning features return a `trial_expired` error. The app can show "your trial has ended" instead of a confusing "forbidden".
+- **Frontend types come from the backend.** `frontend/src/types/api.d.ts` is generated from the backend's API description. If the backend changes a field, the frontend fails to compile instead of breaking at runtime.
+- **Every database change is a migration.** Migrations have to be reversible, and "add" and "delete" changes go in separate steps. The rules are in [AGENT.md](AGENT.md).
+
+No email is sent yet. When you invite someone, the invite token is shown on screen, and you pass it along yourself.
+
+## Running it
+
+You need [Docker](https://www.docker.com/) installed. That's enough for the quick start.
+
+### Quick start (everything in Docker)
 
 ```bash
-docker compose up -d db
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
+```
+
+Open `backend/.env` and set `SECRET_KEY` to a long random string. This command makes one:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+```
+
+Then start everything:
+
+```bash
+docker compose up --build
+```
+
+This starts the database, the backend and the frontend. The backend applies database migrations when it starts. Code changes reload automatically.
+
+- App: http://localhost:3000
+- API docs (try the endpoints in your browser): http://localhost:8000/docs
+
+### Create the first account
+
+The database starts empty, and there's no sign-up page, so you create the first platform account from the command line:
+
+```bash
+docker compose exec backend python -m app.cli create-superadmin you@example.com
+```
+
+It asks for a password. Add `--role admin` or `--role superviewer` to create those roles instead.
+
+Then:
+
+1. Log in at http://localhost:3000 with that email and password. Leave the "Tenant slug" field empty.
+2. Create a tenant and invite its tenant admin. Copy the invite token it shows.
+3. Log out, open http://localhost:3000/accept-invite, paste the token and pick a password.
+4. Log in as the tenant admin with the tenant's slug (its short URL name), then invite learners and add courses the same way.
+
+### Running without Docker (except the database)
+
+Useful if you want your editor's debugger. You'll need [uv](https://docs.astral.sh/uv/) and Node.js 24.
+
+```bash
+docker compose up -d db                  # just the database
 
 cd backend
-uv sync
-uv run alembic upgrade head
+uv sync                                  # install Python packages
+uv run alembic upgrade head              # create the tables
 uv run fastapi dev app/main.py           # http://localhost:8000
 
-cd frontend
+cd frontend                              # in a second terminal
 npm install
-npm run dev                               # http://localhost:3000
+npm run dev                              # http://localhost:3000
 ```
 
-## Repository layout
+Create the first account with `uv run python -m app.cli create-superadmin you@example.com` from `backend/`.
 
-```
-.
-├── compose.yml
-├── backend/
-│   ├── alembic/                 # migrations (autogenerated from models)
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── deps.py          # DB session, current user, role guards, pagination
-│   │   │   └── v1/endpoints/    # HTTP layer only — thin routers
-│   │   ├── core/                # settings, database, security, errors, logging
-│   │   ├── models/              # SQLAlchemy models + mixins
-│   │   ├── repositories/        # data access; tenant-scoped by construction
-│   │   ├── schemas/             # Pydantic request/response models
-│   │   ├── services/            # business logic; owns transactions
-│   │   └── main.py              # app factory
-│   └── tests/                   # integration tests against real Postgres
-└── frontend/
-    └── src/
-        ├── app/                 # routes (App Router)
-        ├── components/ui/       # shared presentational components
-        ├── config/env.ts        # env access (public vs server-only URLs)
-        ├── features/<domain>/   # feature modules: api calls, components, hooks
-        ├── hooks/               # shared hooks
-        ├── lib/api/client.ts    # typed API client
-        └── types/api.d.ts       # GENERATED from backend OpenAPI — don't edit
+### Expiring trials
+
+Run this on a schedule, hourly for example. Running it twice, or twice at once, is safe:
+
+```bash
+uv run python -m app.cli expire-trials
 ```
 
-## Multi-tenancy model
+## Tests and checks
 
-**Shared database, shared schema, `tenant_id` column.** Simple to operate and scales to
-many tenants; it can be moved to schema-per-tenant or database-per-tenant later for large
-customers without changing the API.
-
-How isolation is enforced:
-
-1. Tenant-owned models use `TenantScopedMixin` (adds an indexed `tenant_id` FK).
-2. Their repositories subclass `TenantScopedRepository`, which is constructed with a
-   `tenant_id` and adds `WHERE tenant_id = …` to **every** query and sets it on inserts.
-3. The JWT carries only the user id. The tenant comes from the `X-Tenant-Slug` header and
-   is checked against the account's own tenant on every request (an unknown slug and
-   someone else's slug both give the same 403). Tenant ids are never taken from the body.
-4. `tests/test_tenant_isolation.py` and `tests/test_learning.py` check that one tenant
-   can't list, read, update, or delete another tenant's data.
-
-**Roles.** Platform accounts (no tenant): `superadmin` (creates/deletes tenants), `admin`
-(updates tenants, extends trials), `superviewer` (read-only). They see tenant metadata only,
-never a tenant's users or courses. Tenant accounts: `tenantadmin` (manages users, courses
-and assignments) and `user` (learner). Guards live in `backend/app/api/deps.py`.
-
-**Onboarding is invite-only.** A superadmin creates the tenant (`POST /tenants`) and
-invites its first tenantadmin (`POST /users/invites`); tenantadmins invite users. Invitees set
-a password at `POST /auth/accept-invite`. `POST /auth/login` takes `{email, password,
-tenant_slug}` (omit `tenant_slug` for platform accounts). The same email may have separate
-accounts in different tenants. First superadmin (or admin/superviewer with `--role`):
-`uv run python -m app.cli create-superadmin you@example.com`.
-
-**Learning.** Tenantadmins assign courses to users (`POST /courses/{id}/enrollments`);
-users see only published courses assigned to them, report progress with
-`PUT /courses/{id}/progress {progress_percent}` (0 = not started, 100 = completed) and list
-their own with `GET /enrollments/me`. Admins see progress per course at
-`GET /courses/{id}/enrollments`.
-
-**Free trial:** every tenant starts on a `TRIAL_DAYS` (14) day trial; afterwards its learning
-features and invites are blocked until a platform admin extends it. See
-[docs/tenant-trial.md](docs/tenant-trial.md). Schedule
-`uv run python -m app.cli expire-trials` (e.g. hourly) to record expiries.
-
-## Common workflows
-
-**Add a new tenant-scoped resource** (e.g. `Lesson`):
-
-1. `app/models/lesson.py`: `class Lesson(UUIDPrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base)`
-   and export it from `app/models/__init__.py`.
-2. `uv run alembic revision --autogenerate -m "add lessons"`, review it, then `uv run alembic upgrade head`.
-3. Add a schema, a `TenantScopedRepository[Lesson]`, a service, and an endpoint router.
-   Register the router in `app/api/v1/router.py`.
-4. With the backend running, `cd frontend && npm run gen:api` regenerates the TS types.
-   The new endpoints are then typed in `createApiClient()`.
-
-**Checks**
+Backend tests run against a real PostgreSQL database, not a fake one, so start it first with `docker compose up -d db`. The tests create their own `learning_platform_test` database and leave your data alone.
 
 ```bash
 cd backend  && uv run ruff check . && uv run ruff format --check . && uv run mypy app && uv run pytest
 cd frontend && npm run lint && npm run typecheck && npm run build
 ```
 
-Backend tests need Postgres (`docker compose up -d db`). They create and use a separate
-`learning_platform_test` database.
+The tests focus on what would hurt most if it broke: logging in, role permissions, tenant isolation, trial expiry, course assignment and progress.
 
-## Production images
+## Where things are
+
+```
+.
+├── compose.yml                  # runs db + backend + frontend
+├── AGENT.md                     # rules for changes: migrations, tests, change log
+├── CHANGES.md                   # what changed and why, newest first
+├── docs/tenant-trial.md         # how the free trial works
+├── backend/
+│   ├── alembic/versions/        # database migrations
+│   ├── app/
+│   │   ├── api/deps.py          # who's logged in, which tenant, what they may do
+│   │   ├── api/v1/endpoints/    # the HTTP routes
+│   │   ├── services/            # business rules
+│   │   ├── repositories/        # database reads and writes, tenant-filtered
+│   │   ├── models/              # database tables
+│   │   ├── schemas/             # shapes of request and response data
+│   │   ├── core/                # settings, database connection, password hashing
+│   │   └── cli.py               # command-line admin commands
+│   └── tests/
+└── frontend/src/
+    ├── app/                     # pages
+    ├── features/                # screens per area: auth, platform, tenant, learner
+    ├── lib/api/client.ts        # the typed API client
+    └── types/api.d.ts           # generated from the backend, don't edit by hand
+```
+
+## Adding a new feature
+
+Say you want lessons inside courses:
+
+1. Add a model in `backend/app/models/lesson.py` that includes `TenantScopedMixin`, which gives it the `tenant_id` column. Export it from `app/models/__init__.py`.
+2. Generate a migration with `uv run alembic revision --autogenerate -m "add lessons"`, read it over, then run `uv run alembic upgrade head`.
+3. Add a schema, a repository based on `TenantScopedRepository`, a service and an endpoint. Register the endpoint in `app/api/v1/router.py`.
+4. With the backend running, run `npm run gen:api` in `frontend/` to update the frontend types.
+5. Write tests, including one that checks another tenant can't reach the new data, and add an entry to `CHANGES.md`.
+
+## Deploying
 
 Both Dockerfiles have a `prod` target:
 
@@ -137,6 +226,7 @@ docker build --target prod -t lp-backend ./backend
 docker build --target prod --build-arg NEXT_PUBLIC_API_URL=https://api.example.com -t lp-frontend ./frontend
 ```
 
-The prod backend image does not run migrations on startup. Run `alembic upgrade head` as
-a separate release step. `SECRET_KEY` must be at least 32 random characters whenever
-`ENVIRONMENT` isn't `local`, and the app refuses to start otherwise.
+Two differences from local development:
+
+- The production backend doesn't run migrations on startup. Run `alembic upgrade head` as its own release step, so several app instances don't race to change the database.
+- Outside `ENVIRONMENT=local`, the backend refuses to start unless `SECRET_KEY` is at least 32 random characters. With `ENVIRONMENT=production`, the API docs page is also turned off.

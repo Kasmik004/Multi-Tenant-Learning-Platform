@@ -1,5 +1,12 @@
 # Changes
 
+## [2026-09-26] Tests for the IMP_TESTS.md scenarios that weren't covered
+
+- What changed: Added 7 tests and extended 1: tenant accounts can't create tenants; a tenant admin creates only in their own tenant (a body `tenant_id` is ignored, a spoofed header is refused); a learner can't open or report progress on another tenant's course; a cross-tenant user edit leaves the target unchanged; writes without `X-Tenant-Slug` get 400 and create nothing; an expired trial also blocks assignments and progress; an assignment is stored in the right tenant (checked in the DB); a learner can't assign courses or forge progress with extra fields.
+- Why: Went through IMP_TESTS.md; the rest of its scenarios were already covered.
+- Files: `backend/tests/{test_platform_roles,test_tenant_isolation,test_trial_lifecycle,test_learning}.py`
+- Migration: no
+
 ## [2026-09-26] CLI can create admin and superviewer accounts
 
 - What changed: `uv run python -m app.cli create-superadmin <email> --role admin|superviewer` (default stays superadmin).

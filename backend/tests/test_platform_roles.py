@@ -32,6 +32,19 @@ async def test_only_superadmin_creates_and_deletes_tenants(
         assert (await client.delete(f"{API}/tenants/acme", headers=caller)).status_code == 403
 
 
+async def test_tenant_accounts_cannot_create_tenants(
+    client: AsyncClient, create_tenant, superadmin
+) -> None:
+    acme = await create_tenant("acme")
+    jane = await invite_user(client, acme, "jane@example.com")
+
+    for caller in (acme, jane):
+        resp = await client.post(f"{API}/tenants", headers=caller, json={"name": "X", "slug": "x"})
+        assert resp.status_code == 403
+    listed = await client.get(f"{API}/tenants", headers=superadmin)
+    assert [t["slug"] for t in listed.json()["items"]] == ["acme"]
+
+
 async def test_admin_can_update_tenant_but_superviewer_cannot(
     client: AsyncClient, create_tenant
 ) -> None:

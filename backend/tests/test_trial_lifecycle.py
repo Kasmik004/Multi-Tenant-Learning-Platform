@@ -74,6 +74,31 @@ async def test_expired_trial_blocks_learning_but_keeps_accounts(
     assert (await client.get(f"{API}/users", headers=acme)).json()["total"] == 2
 
 
+async def test_expired_trial_blocks_assignments_and_progress(
+    client: AsyncClient, create_tenant
+) -> None:
+    acme = await create_tenant("acme")
+    learner = await invite_user(client, acme, "jane@example.com")
+    course_id = await assign_course(client, acme, learner)
+    learner_id = (await client.get(f"{API}/auth/me", headers=learner)).json()["id"]
+    await set_trial_end("acme", PAST)
+    await _expire_trials()  # recorded as expired, like after the scheduled job
+
+    enroll = f"{API}/courses/{course_id}/enrollments"
+    progress = f"{API}/courses/{course_id}/progress"
+    for method, url, headers, body in (
+        ("GET", f"{API}/enrollments/me", learner, None),
+        ("GET", progress, learner, None),
+        ("PUT", progress, learner, {"progress_percent": 50}),
+        ("GET", enroll, acme, None),
+        ("POST", enroll, acme, {"user_id": learner_id}),
+        ("DELETE", f"{enroll}/{learner_id}", acme, None),
+    ):
+        resp = await client.request(method, url, headers=headers, json=body)
+        assert resp.status_code == 403, (method, url)
+        assert resp.json()["error"]["code"] == "trial_expired"
+
+
 async def test_expired_trial_does_not_affect_other_tenants(
     client: AsyncClient, create_tenant
 ) -> None:

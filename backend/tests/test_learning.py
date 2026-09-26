@@ -1,5 +1,8 @@
 from httpx import AsyncClient
+from sqlalchemy import select
 
+from app.core.database import SessionLocal
+from app.models.enrollment import Enrollment
 from tests.conftest import API, assign_course, in_tenant, invite_user, user_id
 from tests.test_platform_roles import platform_trio
 
@@ -52,6 +55,59 @@ async def test_assignment_rules(client: AsyncClient, create_tenant) -> None:
     assert (await client.delete(f"{enroll}/{jane_id}", headers=acme)).status_code == 204
     assert (await client.get(f"{API}/courses/{course_id}", headers=jane)).status_code == 404
     assert (await client.delete(f"{enroll}/{jane_id}", headers=acme)).status_code == 404
+
+
+async def test_assignment_is_stored_in_the_tenant(client: AsyncClient, create_tenant) -> None:
+    acme = await create_tenant("acme")
+    jane = await invite_user(client, acme, "jane@example.com")
+    course_id = await assign_course(client, acme, jane)
+    acme_id = (await client.get(f"{API}/tenants/current", headers=acme)).json()["id"]
+
+    async with SessionLocal() as session:
+        rows = (await session.scalars(select(Enrollment))).all()
+    assert [(str(e.course_id), str(e.user_id), str(e.tenant_id)) for e in rows] == [
+        (course_id, await user_id(client, jane), acme_id)
+    ]
+    assert rows[0].progress_percent == 0
+
+
+async def test_learner_cannot_forge_assignment_or_progress(
+    client: AsyncClient, create_tenant
+) -> None:
+    acme = await create_tenant("acme")
+    jane = await invite_user(client, acme, "jane@example.com")
+    bob = await invite_user(client, acme, "bob@example.com")
+    course_id = await assign_course(client, acme, bob)
+    other = (
+        await client.post(f"{API}/courses", headers=acme, json={"title": "B", "is_published": True})
+    ).json()["id"]
+    bob_id = await user_id(client, bob)
+
+    # jane can't assign herself (or bob) a course.
+    for uid in (await user_id(client, jane), bob_id):
+        resp = await client.post(
+            f"{API}/courses/{other}/enrollments", headers=jane, json={"user_id": uid}
+        )
+        assert resp.status_code == 403
+    assert (await client.get(f"{API}/enrollments/me", headers=jane)).json()["total"] == 0
+
+    # Extra fields can't pick another user or force a status: the server derives both.
+    progress = f"{API}/courses/{course_id}/progress"
+    forged = {
+        "progress_percent": 10,
+        "user_id": bob_id,
+        "status": "completed",
+        "completed_at": "2020-01-01T00:00:00Z",
+    }
+    assert (await client.put(progress, headers=jane, json=forged)).status_code == 404
+    mine = (await client.put(progress, headers=bob, json=forged)).json()
+    assert (mine["status"], mine["progress_percent"], mine["completed_at"]) == (
+        "in_progress",
+        10,
+        None,
+    )
+    listed = (await client.get(f"{API}/courses/{course_id}/enrollments", headers=acme)).json()
+    assert [(e["user_id"], e["progress_percent"]) for e in listed["items"]] == [(bob_id, 10)]
 
 
 async def test_progress_tracking(client: AsyncClient, create_tenant) -> None:
