@@ -1,5 +1,12 @@
 # Changes
 
+## [2026-09-26] Demo data command with known credentials
+
+- What changed: `uv run python -m app.cli seed-demo` creates tenant `demo` with a superadmin, a tenantadmin, a learner (all `demo-password-123`) and a published course assigned to the learner. Re-running is a no-op; it refuses to run when `ENVIRONMENT=production`. README lists the credentials. `IMP_TESTS.md` and `final.md` are untracked and gitignored.
+- Why: The submission needs demo/test credentials, and the database otherwise starts empty.
+- Files: `backend/app/cli.py`, `backend/tests/test_seed_demo.py`, `README.md`, `.gitignore`
+- Migration: no
+
 ## [2026-09-26] Tests for the IMP_TESTS.md scenarios that weren't covered
 
 - What changed: Added 7 tests and extended 1: tenant accounts can't create tenants; a tenant admin creates only in their own tenant (a body `tenant_id` is ignored, a spoofed header is refused); a learner can't open or report progress on another tenant's course; a cross-tenant user edit leaves the target unchanged; writes without `X-Tenant-Slug` get 400 and create nothing; an expired trial also blocks assignments and progress; an assignment is stored in the right tenant (checked in the DB); a learner can't assign courses or forge progress with extra fields.

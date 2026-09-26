@@ -39,6 +39,8 @@ Every new tenant gets a 14-day free trial. When it ends, people can still log in
 
 ## How it's built
 
+For the reasoning behind the design, see [DESIGN.md](DESIGN.md).
+
 ```
   Browser
      │
@@ -125,9 +127,27 @@ This starts the database, the backend and the frontend. The backend applies data
 - App: http://localhost:3000
 - API docs (try the endpoints in your browser): http://localhost:8000/docs
 
+### Demo credentials
+
+The fastest way to look around is to load the demo data:
+
+```bash
+docker compose exec backend python -m app.cli seed-demo
+```
+
+This creates a tenant called `demo` with one published course, "Getting started", already assigned to the learner. Every account uses the password `demo-password-123`:
+
+| Account | Email | Tenant slug at login |
+| --- | --- | --- |
+| Platform superadmin | `superadmin@demo.example.com` | leave empty |
+| Tenant admin | `admin@demo.example.com` | `demo` |
+| Learner | `learner@demo.example.com` | `demo` |
+
+Running it again does nothing if the demo tenant already exists. It refuses to run when `ENVIRONMENT=production`, because the password is public.
+
 ### Create the first account
 
-The database starts empty, and there's no sign-up page, so you create the first platform account from the command line:
+Without the demo data, the database starts empty, and there's no sign-up page, so you create the first platform account from the command line:
 
 ```bash
 docker compose exec backend python -m app.cli create-superadmin you@example.com

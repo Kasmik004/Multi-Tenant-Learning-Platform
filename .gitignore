@@ -21,3 +21,7 @@ node_modules/
 .DS_Store
 Thumbs.db
 .idea/
+
+# Personal notes, not part of the project
+IMP_TESTS.md
+final.md
