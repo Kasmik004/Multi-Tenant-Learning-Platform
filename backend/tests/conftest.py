@@ -155,3 +155,31 @@ def create_tenant(
         )
 
     return _create
+
+
+async def user_id(client: AsyncClient, headers: AuthHeaders) -> str:
+    resp = await client.get(f"{API}/auth/me", headers=headers)
+    assert resp.status_code == 200, resp.text
+    return str(resp.json()["id"])
+
+
+async def assign_course(
+    client: AsyncClient,
+    admin: AuthHeaders,
+    learner: AuthHeaders,
+    title: str = "Acme 101",
+    published: bool = True,
+) -> str:
+    """Tenantadmin creates a course and assigns it to `learner`; returns the course id."""
+    resp = await client.post(
+        f"{API}/courses", headers=admin, json={"title": title, "is_published": published}
+    )
+    assert resp.status_code == 201, resp.text
+    course_id = str(resp.json()["id"])
+    resp = await client.post(
+        f"{API}/courses/{course_id}/enrollments",
+        headers=admin,
+        json={"user_id": await user_id(client, learner)},
+    )
+    assert resp.status_code == 201, resp.text
+    return course_id

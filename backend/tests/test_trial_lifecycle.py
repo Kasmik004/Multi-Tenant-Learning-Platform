@@ -8,6 +8,7 @@ from app.services import TenantService
 from tests.conftest import (
     API,
     AuthHeaders,
+    assign_course,
     in_tenant,
     invite_user,
     login,
@@ -109,8 +110,13 @@ async def test_extending_trial_reactivates_tenant_with_its_data(
 ) -> None:
     acme = await create_tenant("acme")
     learner = await invite_user(client, acme, "jane@example.com")
-    await client.post(f"{API}/courses", headers=acme, json={"title": "Acme 101"})
+    course_id = await assign_course(client, acme, learner)
+    progress = f"{API}/courses/{course_id}/progress"
+    await client.put(progress, headers=learner, json={"progress_percent": 40})
     await set_trial_end("acme", PAST)
+    assert (await client.put(progress, headers=learner, json={"progress_percent": 90})).json()[
+        "error"
+    ]["code"] == "trial_expired"
     await _expire_trials()
 
     resp = await client.post(f"{API}/tenants/acme/trial", headers=superadmin, json={"days": 7})
@@ -125,6 +131,8 @@ async def test_extending_trial_reactivates_tenant_with_its_data(
     courses = await client.get(f"{API}/courses", headers=learner)
     assert courses.status_code == 200
     assert [c["title"] for c in courses.json()["items"]] == ["Acme 101"]
+    # Progress made before the expiry is kept.
+    assert (await client.get(progress, headers=learner)).json()["progress_percent"] == 40
     # The sweep doesn't undo the reactivation.
     assert await _expire_trials() == []
 

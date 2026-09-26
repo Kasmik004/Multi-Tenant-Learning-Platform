@@ -77,19 +77,34 @@ How isolation is enforced:
 1. Tenant-owned models use `TenantScopedMixin` (adds an indexed `tenant_id` FK).
 2. Their repositories subclass `TenantScopedRepository`, which is constructed with a
    `tenant_id` and adds `WHERE tenant_id = …` to **every** query and sets it on inserts.
-3. The tenant comes from the verified JWT (`tid` claim) via `CurrentUser`. It is never
-   taken from the request body or URL.
-4. `tests/test_tenant_isolation.py` checks that one tenant can't list, read, update, or
-   delete another tenant's data.
+3. The JWT carries only the user id. The tenant comes from the `X-Tenant-Slug` header and
+   is checked against the account's own tenant on every request (an unknown slug and
+   someone else's slug both give the same 403). Tenant ids are never taken from the body.
+4. `tests/test_tenant_isolation.py` and `tests/test_learning.py` check that one tenant
+   can't list, read, update, or delete another tenant's data.
 
-Roles within a tenant: `admin`, `instructor`, `learner` (guards: `AdminUser`, `StaffUser`).
+**Roles.** Platform accounts (no tenant): `superadmin` (creates/deletes tenants), `admin`
+(updates tenants, extends trials), `superviewer` (read-only). They see tenant metadata only,
+never a tenant's users or courses. Tenant accounts: `tenantadmin` (manages users, courses
+and assignments) and `user` (learner). Guards live in `backend/app/api/deps.py`.
 
-Auth flow: `POST /api/v1/tenants` onboards an organization together with its first admin.
-`POST /api/v1/auth/login` takes `{tenant_slug, email, password}` and returns a JWT. The
-same email may exist in different tenants as separate accounts.
+**Onboarding is invite-only.** A superadmin creates the tenant (`POST /tenants`) and
+invites its first tenantadmin (`POST /users/invites`); tenantadmins invite users. Invitees set
+a password at `POST /auth/accept-invite`. `POST /auth/login` takes `{email, password,
+tenant_slug}` (omit `tenant_slug` for platform accounts). The same email may have separate
+accounts in different tenants. First superadmin (or admin/superviewer with `--role`):
+`uv run python -m app.cli create-superadmin you@example.com`.
 
-> `POST /tenants` is open for self-service onboarding. Lock it down (platform-admin role,
-> invites, rate limiting) before exposing it publicly.
+**Learning.** Tenantadmins assign courses to users (`POST /courses/{id}/enrollments`);
+users see only published courses assigned to them, report progress with
+`PUT /courses/{id}/progress {progress_percent}` (0 = not started, 100 = completed) and list
+their own with `GET /enrollments/me`. Admins see progress per course at
+`GET /courses/{id}/enrollments`.
+
+**Free trial:** every tenant starts on a `TRIAL_DAYS` (14) day trial; afterwards its learning
+features and invites are blocked until a platform admin extends it. See
+[docs/tenant-trial.md](docs/tenant-trial.md). Schedule
+`uv run python -m app.cli expire-trials` (e.g. hourly) to record expiries.
 
 ## Common workflows
 

@@ -23,11 +23,16 @@ class BaseRepository[ModelT: Base]:
         result = await self.session.execute(self._query().where(pk == id))
         return result.scalar_one_or_none()
 
-    async def list(self, *, limit: int = 50, offset: int = 0) -> tuple[list[ModelT], int]:
-        query = self._query()
+    async def list_where(
+        self, *conditions: Any, limit: int = 50, offset: int = 0
+    ) -> tuple[list[ModelT], int]:
+        query = self._query().where(*conditions)
         total = await self.session.scalar(select(func.count()).select_from(query.subquery()))
         rows = await self.session.scalars(query.limit(limit).offset(offset))
         return list(rows), total or 0
+
+    async def list(self, *, limit: int = 50, offset: int = 0) -> tuple[list[ModelT], int]:
+        return await self.list_where(limit=limit, offset=offset)
 
     async def add(self, obj: ModelT) -> ModelT:
         self.session.add(obj)

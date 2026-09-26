@@ -9,9 +9,12 @@ from app.schemas.course import CourseCreate, CourseUpdate
 
 
 class CourseService:
-    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+    def __init__(
+        self, session: AsyncSession, tenant_id: uuid.UUID, learner_id: uuid.UUID | None = None
+    ) -> None:
+        """learner_id: restrict to that user's assigned, published courses."""
         self.session = session
-        self.courses = CourseRepository(session, tenant_id)
+        self.courses = CourseRepository(session, tenant_id, learner_id)
 
     async def list(self, *, limit: int, offset: int) -> tuple[list[Course], int]:
         return await self.courses.list(limit=limit, offset=offset)
