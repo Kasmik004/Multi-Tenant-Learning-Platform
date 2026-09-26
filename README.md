@@ -12,6 +12,7 @@ It's a demo project, but the backend is built to production standards: real data
 | --- | --- |
 | [DESIGN_DESCRIPTION.md](DESIGN_DESCRIPTION.md) | How the system is designed and why: how tenants are kept apart, how the free trial ends, roles, sign-in, and what's still missing. Also explains how the project was built with an AI agent. |
 | [Completion_Time.md](Completion_Time.md) | When the project was estimated to be done, and when it was actually completed. |
+| [AI_Powered_Course_Generation.pdf](AI_Powered_Course_Generation.pdf) | Design for the AI-Powered Course Creation System. |
 
 ## What you can do with it
 
