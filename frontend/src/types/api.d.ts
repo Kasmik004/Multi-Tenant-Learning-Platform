@@ -55,6 +55,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/accept-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Invite */
+        post: operations["accept_invite_api_v1_auth_accept_invite_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/me": {
         parameters: {
             query?: never;
@@ -79,7 +96,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Tenants */
+        get: operations["list_tenants_api_v1_tenants_get"];
         put?: never;
         /** Create Tenant */
         post: operations["create_tenant_api_v1_tenants_post"];
@@ -106,6 +124,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Tenant */
+        get: operations["get_tenant_api_v1_tenants__slug__get"];
+        put?: never;
+        post?: never;
+        /** Delete Tenant */
+        delete: operations["delete_tenant_api_v1_tenants__slug__delete"];
+        options?: never;
+        head?: never;
+        /** Update Tenant */
+        patch: operations["update_tenant_api_v1_tenants__slug__patch"];
+        trace?: never;
+    };
+    "/api/v1/tenants/{slug}/trial": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extend Trial
+         * @description Extends the trial by `days`; reactivates an expired tenant (counted from now).
+         */
+        post: operations["extend_trial_api_v1_tenants__slug__trial_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -116,12 +173,46 @@ export interface paths {
         /** List Users */
         get: operations["list_users_api_v1_users_get"];
         put?: never;
-        /** Create User */
-        post: operations["create_user_api_v1_users_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Invite User */
+        post: operations["invite_user_api_v1_users_invites_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove User */
+        delete: operations["remove_user_api_v1_users__user_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update User */
+        patch: operations["update_user_api_v1_users__user_id__patch"];
         trace?: never;
     };
     "/api/v1/courses": {
@@ -161,10 +252,95 @@ export interface paths {
         patch: operations["update_course_api_v1_courses__course_id__patch"];
         trace?: never;
     };
+    "/api/v1/courses/{course_id}/enrollments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Course Enrollments
+         * @description Who the course is assigned to, with each user's progress.
+         */
+        get: operations["list_course_enrollments_api_v1_courses__course_id__enrollments_get"];
+        put?: never;
+        /** Assign Course */
+        post: operations["assign_course_api_v1_courses__course_id__enrollments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/courses/{course_id}/enrollments/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Unassign Course */
+        delete: operations["unassign_course_api_v1_courses__course_id__enrollments__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/courses/{course_id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Progress */
+        get: operations["get_my_progress_api_v1_courses__course_id__progress_get"];
+        /** Set My Progress */
+        put: operations["set_my_progress_api_v1_courses__course_id__progress_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/enrollments/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Enrollments
+         * @description The caller's assigned (published) courses with their progress, oldest first.
+         */
+        get: operations["my_enrollments_api_v1_enrollments_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AcceptInviteRequest */
+        AcceptInviteRequest: {
+            /** Token */
+            token: string;
+            /** Password */
+            password: string;
+            /** Confirm Password */
+            confirm_password: string;
+        };
         /** CourseCreate */
         CourseCreate: {
             /** Title */
@@ -217,15 +393,77 @@ export interface components {
             /** Is Published */
             is_published?: boolean | null;
         };
+        /** EnrollmentCreate */
+        EnrollmentCreate: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /** EnrollmentRead */
+        EnrollmentRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            status: components["schemas"]["ProgressStatus"];
+            /** Progress Percent */
+            progress_percent: number;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** InviteCreate */
+        InviteCreate: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Full Name */
+            full_name?: string | null;
+            /** @default user */
+            role: components["schemas"]["TenantRole"];
+        };
+        /** InviteRead */
+        InviteRead: {
+            user: components["schemas"]["UserRead"];
+            /** Invite Token */
+            invite_token: string;
+            /**
+             * Invite Expires At
+             * Format: date-time
+             */
+            invite_expires_at: string;
+        };
         /** LoginRequest */
         LoginRequest: {
-            /** Tenant Slug */
-            tenant_slug: string;
             /**
              * Email
              * Format: email
@@ -233,11 +471,65 @@ export interface components {
             email: string;
             /** Password */
             password: string;
+            /** Tenant Slug */
+            tenant_slug?: string | null;
+        };
+        /** MeRead */
+        MeRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Tenant Id */
+            tenant_id: string | null;
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Full Name */
+            full_name: string | null;
+            tenant_role: components["schemas"]["TenantRole"] | null;
+            platform_role: components["schemas"]["PlatformRole"] | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Invite Pending */
+            invite_pending: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Tenant Slug */
+            tenant_slug: string | null;
         };
         /** Page[CourseRead] */
         Page_CourseRead_: {
             /** Items */
             items: components["schemas"]["CourseRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[EnrollmentRead] */
+        Page_EnrollmentRead_: {
+            /** Items */
+            items: components["schemas"]["EnrollmentRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[TenantRead] */
+        Page_TenantRead_: {
+            /** Items */
+            items: components["schemas"]["TenantRead"][];
             /** Total */
             total: number;
             /** Limit */
@@ -256,28 +548,27 @@ export interface components {
             /** Offset */
             offset: number;
         };
-        /** TenantAdminCreate */
-        TenantAdminCreate: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /** Full Name */
-            full_name: string;
-            /** Password */
-            password: string;
-        };
         /**
-         * TenantCreate
-         * @description Onboards an organization together with its first administrator.
+         * PlatformRole
+         * @enum {string}
          */
+        PlatformRole: "superadmin" | "admin" | "superviewer";
+        /**
+         * ProgressStatus
+         * @enum {string}
+         */
+        ProgressStatus: "not_started" | "in_progress" | "completed";
+        /** ProgressUpdate */
+        ProgressUpdate: {
+            /** Progress Percent */
+            progress_percent: number;
+        };
+        /** TenantCreate */
         TenantCreate: {
             /** Name */
             name: string;
             /** Slug */
             slug: string;
-            admin: components["schemas"]["TenantAdminCreate"];
         };
         /** TenantRead */
         TenantRead: {
@@ -292,11 +583,39 @@ export interface components {
             slug: string;
             /** Is Active */
             is_active: boolean;
+            status: components["schemas"]["TenantStatus"];
+            /**
+             * Trial Ends At
+             * Format: date-time
+             */
+            trial_ends_at: string;
+            /** Expired At */
+            expired_at: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * TenantRole
+         * @enum {string}
+         */
+        TenantRole: "tenantadmin" | "user";
+        /**
+         * TenantStatus
+         * @description Lifecycle: created -> trial_active -> expired (-> trial_active again when extended).
+         *
+         *     "Created" is not stored: a tenant's trial starts in the same transaction that creates it.
+         * @enum {string}
+         */
+        TenantStatus: "trial_active" | "expired";
+        /** TenantUpdate */
+        TenantUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
         };
         /** Token */
         Token: {
@@ -308,19 +627,10 @@ export interface components {
              */
             token_type: string;
         };
-        /** UserCreate */
-        UserCreate: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /** Full Name */
-            full_name: string;
-            /** Password */
-            password: string;
-            /** @default learner */
-            role: components["schemas"]["UserRole"];
+        /** TrialExtend */
+        TrialExtend: {
+            /** Days */
+            days: number;
         };
         /** UserRead */
         UserRead: {
@@ -329,32 +639,31 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            /**
-             * Tenant Id
-             * Format: uuid
-             */
-            tenant_id: string;
+            /** Tenant Id */
+            tenant_id: string | null;
             /**
              * Email
              * Format: email
              */
             email: string;
             /** Full Name */
-            full_name: string;
-            role: components["schemas"]["UserRole"];
+            full_name: string | null;
+            tenant_role: components["schemas"]["TenantRole"] | null;
+            platform_role: components["schemas"]["PlatformRole"] | null;
             /** Is Active */
             is_active: boolean;
+            /** Invite Pending */
+            invite_pending: boolean;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
         };
-        /**
-         * UserRole
-         * @enum {string}
-         */
-        UserRole: "admin" | "instructor" | "learner";
+        /** UserUpdate */
+        UserUpdate: {
+            role: components["schemas"]["TenantRole"];
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -454,6 +763,39 @@ export interface operations {
             };
         };
     };
+    accept_invite_api_v1_auth_accept_invite_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptInviteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Token"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     me_api_v1_auth_me_get: {
         parameters: {
             query?: never;
@@ -469,7 +811,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserRead"];
+                    "application/json": components["schemas"]["MeRead"];
+                };
+            };
+        };
+    };
+    list_tenants_api_v1_tenants_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_TenantRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -510,7 +884,9 @@ export interface operations {
     current_tenant_api_v1_tenants_current_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -525,6 +901,145 @@ export interface operations {
                     "application/json": components["schemas"]["TenantRead"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tenant_api_v1_tenants__slug__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_tenant_api_v1_tenants__slug__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_tenant_api_v1_tenants__slug__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    extend_trial_api_v1_tenants__slug__trial_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrialExtend"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     list_users_api_v1_users_get: {
@@ -533,7 +1048,9 @@ export interface operations {
                 limit?: number;
                 offset?: number;
             };
-            header?: never;
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -559,21 +1076,91 @@ export interface operations {
             };
         };
     };
-    create_user_api_v1_users_post: {
+    invite_user_api_v1_users_invites_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UserCreate"];
+                "application/json": components["schemas"]["InviteCreate"];
             };
         };
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_user_api_v1_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_user_api_v1_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -598,7 +1185,9 @@ export interface operations {
                 limit?: number;
                 offset?: number;
             };
-            header?: never;
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -627,7 +1216,9 @@ export interface operations {
     create_course_api_v1_courses_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -660,7 +1251,9 @@ export interface operations {
     get_course_api_v1_courses__course_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
             path: {
                 course_id: string;
             };
@@ -691,7 +1284,9 @@ export interface operations {
     delete_course_api_v1_courses__course_id__delete: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
             path: {
                 course_id: string;
             };
@@ -720,7 +1315,9 @@ export interface operations {
     update_course_api_v1_courses__course_id__patch: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
             path: {
                 course_id: string;
             };
@@ -739,6 +1336,215 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CourseRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_course_enrollments_api_v1_courses__course_id__enrollments_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EnrollmentRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_course_api_v1_courses__course_id__enrollments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrollmentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrollmentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unassign_course_api_v1_courses__course_id__enrollments__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
+            path: {
+                course_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_progress_api_v1_courses__course_id__progress_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrollmentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_my_progress_api_v1_courses__course_id__progress_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgressUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrollmentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_enrollments_api_v1_enrollments_me_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                "x-tenant-slug"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EnrollmentRead_"];
                 };
             };
             /** @description Validation Error */

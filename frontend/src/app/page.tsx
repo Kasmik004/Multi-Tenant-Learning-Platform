@@ -1,21 +1,42 @@
-import { getApiStatus } from "@/features/health/api";
+"use client";
 
-export default async function Home() {
-  const status = await getApiStatus();
-  const healthy = status === "ok";
+import { useAuth } from "@/features/auth/AuthProvider";
+import { LoginPage } from "@/features/auth/LoginPage";
+import { PlatformDashboard } from "@/features/platform/PlatformDashboard";
+import { TenantDashboard } from "@/features/tenant/TenantDashboard";
+import { LearnerDashboard } from "@/features/learner/LearnerDashboard";
 
-  return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-6 px-6 py-24">
-      <h1 className="text-3xl font-semibold tracking-tight">Learning Platform</h1>
-      <p className="text-zinc-600 dark:text-zinc-400">
-        Multi-tenant learning platform for institutes and organizations.
-      </p>
-      <div className="flex items-center gap-2 text-sm">
-        <span
-          className={`inline-block h-2.5 w-2.5 rounded-full ${healthy ? "bg-green-500" : "bg-red-500"}`}
-        />
-        API &amp; database: {healthy ? "connected" : "unreachable"}
-      </div>
-    </main>
-  );
+/**
+ * Root page: shows login when unauthenticated, then routes to the
+ * correct dashboard based on the user's role from /auth/me.
+ */
+export default function Home() {
+  const { user, loading } = useAuth();
+
+  // Initial session check — show a centered spinner.
+  if (loading) {
+    return (
+      <main className="flex flex-1 items-center justify-center">
+        <div className="spinner spinner-lg" />
+      </main>
+    );
+  }
+
+  // Not logged in — show login form.
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  // Platform account (superadmin / admin / superviewer) — no tenant.
+  if (user.platform_role) {
+    return <PlatformDashboard />;
+  }
+
+  // Tenant admin — manage users, courses, enrollments.
+  if (user.tenant_role === "tenantadmin") {
+    return <TenantDashboard />;
+  }
+
+  // Regular tenant user (learner).
+  return <LearnerDashboard />;
 }
