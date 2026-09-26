@@ -23,7 +23,7 @@ The backend is async Python (FastAPI and SQLAlchemy). The frontend is mostly cli
 
 ## One database, one set of tables
 
-Every tenant lives in the same tables. Rows that belong to a tenant carry a `tenant_id`.
+Every tenant lives in the same tables. Rows that belong to a tenant carry a `tenant_id`. The step-by-step version is in [docs/tenant-isolation-and-expiry.md](docs/tenant-isolation-and-expiry.md).
 
 We looked at giving each tenant its own schema or its own database. That buys stronger walls, but you pay for it on every migration and every new customer. For many small tenants, shared tables are the sane default. A big customer could still be moved to its own database later without changing the API.
 

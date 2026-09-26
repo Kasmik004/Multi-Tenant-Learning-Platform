@@ -78,6 +78,8 @@ Keeping these separate means the permission checks live in one file (`backend/ap
 
 ### How tenants are kept apart
 
+A step-by-step walkthrough, plus how trial expiry works, is in [docs/tenant-isolation-and-expiry.md](docs/tenant-isolation-and-expiry.md).
+
 All tenants share one database and the same tables. Every row that belongs to a tenant has a `tenant_id` column saying whose it is.
 
 The alternative is a separate database per tenant. That gives stronger walls but is much more work to run: every new tenant means a new database, and every schema change has to be applied N times. For a platform with many small organizations, shared tables are simpler, and the design can still move a big customer to its own database later without changing the API.
@@ -207,6 +209,7 @@ The tests focus on what would hurt most if it broke: logging in, role permission
 ├── compose.yml                  # runs db + backend + frontend
 ├── AGENT.md                     # rules for changes: migrations, tests, change log
 ├── CHANGES.md                   # what changed and why, newest first
+├── docs/tenant-isolation-and-expiry.md  # how tenants are kept apart, how trials end
 ├── docs/tenant-trial.md         # how the free trial works
 ├── backend/
 │   ├── alembic/versions/        # database migrations
