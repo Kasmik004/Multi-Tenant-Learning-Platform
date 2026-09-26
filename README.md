@@ -45,69 +45,6 @@ A typical flow:
 
 Every new tenant gets a 14-day free trial. When it ends, people can still log in, but courses, progress and new invites are switched off until a platform admin extends the trial. Nothing gets deleted. [docs/tenant-trial.md](docs/tenant-trial.md) has the details.
 
-## How it's built
-
-For the reasoning behind the design, see [DESIGN_DESCRIPTION.md](DESIGN_DESCRIPTION.md).
-
-```
-  Browser
-     │
-     ▼
-┌──────────────┐    HTTP + JSON     ┌──────────────┐      SQL      ┌──────────────┐
-│   Frontend   │ ─────────────────▶ │   Backend    │ ────────────▶ │  PostgreSQL  │
-│   Next.js    │   login token +    │   FastAPI    │               │   database   │
-│  port 3000   │   tenant name      │  port 8000   │               │  port 5432   │
-└──────────────┘                    └──────────────┘               └──────────────┘
-```
-
-| Part | Tools |
-| --- | --- |
-| Backend (`backend/`) | Python 3.12, FastAPI, SQLAlchemy (talks to the database), Alembic (database changes), uv (package manager) |
-| Frontend (`frontend/`) | Next.js 16, React 19, TypeScript, Tailwind CSS |
-| Database | PostgreSQL 17 |
-| Running it all | Docker Compose |
-
-### Backend layers
-
-A request passes through four layers, and each one has a single job:
-
-```
-endpoints/     receives the HTTP request, checks who you are and what you're allowed to do
-   │
-services/      the actual rules ("a learner can only see assigned, published courses")
-   │           and it decides when to save to the database
-repositories/  reads and writes database rows
-   │
-models/        the table definitions
-```
-
-Keeping these separate means the permission checks live in one file (`backend/app/api/deps.py`), the business rules live in services, and nothing outside the repositories writes SQL.
-
-### How tenants are kept apart
-
-A step-by-step walkthrough, plus how trial expiry works, is in [DESIGN_DESCRIPTION.md](DESIGN_DESCRIPTION.md).
-
-All tenants share one database and the same tables. Every row that belongs to a tenant has a `tenant_id` column saying whose it is.
-
-The alternative is a separate database per tenant. That gives stronger walls but is much more work to run: every new tenant means a new database, and every schema change has to be applied N times. For a platform with many small organizations, shared tables are simpler, and the design can still move a big customer to its own database later without changing the API.
-
-The risk with shared tables is obvious: forget one `WHERE tenant_id = ...` and one tenant sees another's data. So the code doesn't rely on people remembering it:
-
-- Repositories for tenant data are created *with* a tenant id, and they add the tenant filter to every query and stamp it on every new row automatically.
-- The browser never gets to pick the tenant id. The login token only says who you are. The tenant comes from an `X-Tenant-Slug` header, and the server checks on every request that your account actually belongs to that tenant. A tenant that doesn't exist and a tenant that isn't yours give the same error, so the tenant's name don't get leaked.
-- Tests (`tests/test_tenant_isolation.py`, `tests/test_learning.py`) try to list, read, edit and delete another tenant's data and expect to be refused.
-
-### Other decisions and why
-
-- **Invite-only sign-up.** There's no public registration page. Admins invite people. Organizations are private, so strangers shouldn't be able to create accounts or look around. Invite tokens are single-use, expire after 72 hours, and only a hash of them is stored.
-- **One account per tenant.** The same email can have separate accounts in two organizations, with separate passwords. An earlier version had one global account that joined several tenants. We dropped it because it let users browse tenants and made it harder to keep data apart (the history is in [CHANGES.md](CHANGES.md)).
-- **Trial expiry is checked on every request.** A scheduled command also marks expired tenants, but only for record-keeping. If the job doesn't run, access still stops on time.
-- **Soft block when a trial ends.** Users can log in and admins can manage users, but learning features return a `trial_expired` error. The app can show "your trial has ended" instead of a confusing "forbidden".
-- **Frontend types come from the backend.** `frontend/src/types/api.d.ts` is generated from the backend's API description. If the backend changes a field, the frontend fails to compile instead of breaking at runtime.
-- **Every database change is a migration.** Migrations have to be reversible, and "add" and "delete" changes go in separate steps. The rules are in [AGENT.md](AGENT.md).
-
-No email is sent yet. When you invite someone, the invite token is shown on screen, and you pass it along yourself.
-
 ## Running it
 
 You need [Docker](https://www.docker.com/) installed. That's enough for the quick start.
@@ -209,6 +146,69 @@ cd frontend && npm run lint && npm run typecheck && npm run build
 
 The tests focus on what would hurt most if it broke: logging in, role permissions, tenant isolation, trial expiry, course assignment and progress.
 
+## How it's built
+
+For the reasoning behind the design, see [DESIGN_DESCRIPTION.md](DESIGN_DESCRIPTION.md).
+
+```
+  Browser
+     │
+     ▼
+┌──────────────┐    HTTP + JSON     ┌──────────────┐      SQL      ┌──────────────┐
+│   Frontend   │ ─────────────────▶ │   Backend    │ ────────────▶ │  PostgreSQL  │
+│   Next.js    │   login token +    │   FastAPI    │               │   database   │
+│  port 3000   │   tenant name      │  port 8000   │               │  port 5432   │
+└──────────────┘                    └──────────────┘               └──────────────┘
+```
+
+| Part | Tools |
+| --- | --- |
+| Backend (`backend/`) | Python 3.12, FastAPI, SQLAlchemy (talks to the database), Alembic (database changes), uv (package manager) |
+| Frontend (`frontend/`) | Next.js 16, React 19, TypeScript, Tailwind CSS |
+| Database | PostgreSQL 17 |
+| Running it all | Docker Compose |
+
+### Backend layers
+
+A request passes through four layers, and each one has a single job:
+
+```
+endpoints/     receives the HTTP request, checks who you are and what you're allowed to do
+   │
+services/      the actual rules ("a learner can only see assigned, published courses")
+   │           and it decides when to save to the database
+repositories/  reads and writes database rows
+   │
+models/        the table definitions
+```
+
+Keeping these separate means the permission checks live in one file (`backend/app/api/deps.py`), the business rules live in services, and nothing outside the repositories writes SQL.
+
+### How tenants are kept apart
+
+A step-by-step walkthrough, plus how trial expiry works, is in [DESIGN_DESCRIPTION.md](DESIGN_DESCRIPTION.md).
+
+All tenants share one database and the same tables. Every row that belongs to a tenant has a `tenant_id` column saying whose it is.
+
+The alternative is a separate database per tenant. That gives stronger walls but is much more work to run: every new tenant means a new database, and every schema change has to be applied N times. For a platform with many small organizations, shared tables are simpler, and the design can still move a big customer to its own database later without changing the API.
+
+The risk with shared tables is obvious: forget one `WHERE tenant_id = ...` and one tenant sees another's data. So the code doesn't rely on people remembering it:
+
+- Repositories for tenant data are created *with* a tenant id, and they add the tenant filter to every query and stamp it on every new row automatically.
+- The browser never gets to pick the tenant id. The login token only says who you are. The tenant comes from an `X-Tenant-Slug` header, and the server checks on every request that your account actually belongs to that tenant. A tenant that doesn't exist and a tenant that isn't yours give the same error, so the tenant's name don't get leaked.
+- Tests (`tests/test_tenant_isolation.py`, `tests/test_learning.py`) try to list, read, edit and delete another tenant's data and expect to be refused.
+
+### Other decisions and why
+
+- **Invite-only sign-up.** There's no public registration page. Admins invite people. Organizations are private, so strangers shouldn't be able to create accounts or look around. Invite tokens are single-use, expire after 72 hours, and only a hash of them is stored.
+- **One account per tenant.** The same email can have separate accounts in two organizations, with separate passwords. An earlier version had one global account that joined several tenants. We dropped it because it let users browse tenants and made it harder to keep data apart (the history is in [CHANGES.md](CHANGES.md)).
+- **Trial expiry is checked on every request.** A scheduled command also marks expired tenants, but only for record-keeping. If the job doesn't run, access still stops on time.
+- **Soft block when a trial ends.** Users can log in and admins can manage users, but learning features return a `trial_expired` error. The app can show "your trial has ended" instead of a confusing "forbidden".
+- **Frontend types come from the backend.** `frontend/src/types/api.d.ts` is generated from the backend's API description. If the backend changes a field, the frontend fails to compile instead of breaking at runtime.
+- **Every database change is a migration.** Migrations have to be reversible, and "add" and "delete" changes go in separate steps. The rules are in [AGENT.md](AGENT.md).
+
+No email is sent yet. When you invite someone, the invite token is shown on screen, and you pass it along yourself.
+
 ## Where things are
 
 ```
@@ -236,15 +236,6 @@ The tests focus on what would hurt most if it broke: logging in, role permission
     └── types/api.d.ts           # generated from the backend, don't edit by hand
 ```
 
-## Adding a new feature
-
-Say you want lessons inside courses:
-
-1. Add a model in `backend/app/models/lesson.py` that includes `TenantScopedMixin`, which gives it the `tenant_id` column. Export it from `app/models/__init__.py`.
-2. Generate a migration with `uv run alembic revision --autogenerate -m "add lessons"`, read it over, then run `uv run alembic upgrade head`.
-3. Add a schema, a repository based on `TenantScopedRepository`, a service and an endpoint. Register the endpoint in `app/api/v1/router.py`.
-4. With the backend running, run `npm run gen:api` in `frontend/` to update the frontend types.
-5. Write tests, including one that checks another tenant can't reach the new data, and add an entry to `CHANGES.md`.
 
 ## Deploying
 
