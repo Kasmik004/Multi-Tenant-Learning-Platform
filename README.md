@@ -58,7 +58,6 @@ For the reasoning behind the design, see [DESIGN.md](DESIGN.md).
 | Frontend (`frontend/`) | Next.js 16, React 19, TypeScript, Tailwind CSS |
 | Database | PostgreSQL 17 |
 | Running it all | Docker Compose |
-| CI | GitHub Actions runs linting, type checks, migrations and tests on every push |
 
 ### Backend layers
 

@@ -53,7 +53,7 @@ Then the normal gates: `uv run pytest`, `uv run ruff check .`, `uv run ruff form
 ## Applying
 
 The dev DB is the user's; don't upgrade it unless they ask. Tell them to run
-`uv run alembic upgrade head` from `backend/`. CI runs `alembic upgrade head` against a fresh DB.
+`uv run alembic upgrade head` from `backend/`.
 
 ## Revision chain (head last)
 

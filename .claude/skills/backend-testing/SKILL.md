@@ -18,7 +18,7 @@ Needs Postgres on `localhost:5432` (`docker compose up -d db`). Tests use their 
 migrations), and every table is truncated after each test. Never point tests at the dev DB.
 
 Also run before done: `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy app`
-(same as CI in `.github/workflows/ci.yml`).
+(the same checks listed in the README).
 
 ## AGENT.md requirements
 
